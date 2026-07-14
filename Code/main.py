@@ -1,10 +1,11 @@
 import pygame
 from random import randint, uniform, choice
+import asyncio
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, groups):
         super().__init__(groups)
-        self.image = pygame.image.load('Code/Images/Spaceship.png').convert_alpha()
+        self.image = pygame.image.load('Images/Spaceship.png').convert_alpha()
         self.image = pygame.transform.scale(self.image, (110,110))
         self.rect = self.image.get_frect(center = (WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2))
         self.direction = pygame.Vector2()
@@ -31,9 +32,9 @@ class Player(pygame.sprite.Sprite):
             self.direction = self.direction.normalize() if self.direction else self.direction
             self.rect.center += self.direction * self.speed * dt
 
-            last_key = pygame.key.get_just_pressed()
-            if last_key[pygame.K_SPACE] and self.shoot:
-                self.fire_laser()
+            # last_key = pygame.key.get_just_pressed()
+            # if last_key[pygame.K_SPACE] and self.shoot:
+            #     self.fire_laser()
 
 
         
@@ -179,7 +180,7 @@ def draw_menu():
         option_rects.append(option_rect.inflate(30, 20))
 
     last_y = 300 + (len(menu) - 1) * 100
-    hint_font = pygame.font.Font('Code/Images/Lexend-Bold.ttf', 20)
+    hint_font = pygame.font.Font('Images/Lexend-Bold.ttf', 20)
     hint_surface = hint_font.render('Arrow keys to move, Space to shoot (for keyboard)', True, '#D3E4F2')
     hint_rect = hint_surface.get_frect(center = (WINDOW_WIDTH / 2, last_y + 80))
     screen.blit(hint_surface, hint_rect)
@@ -194,7 +195,7 @@ def esp():
         pygame.draw.rect(screen, '#FF4D4D', meteor.rect, 4)
         pygame.draw.line(screen, '#FF4D4D', player.rect.center, meteor.rect.center, 2)
         distance = int(pygame.Vector2(player.rect.center).distance_to(meteor.rect.center))
-        font = pygame.font.Font('Code/Images/Lexend-Bold.ttf', 16)
+        font = pygame.font.Font('Images/Lexend-Bold.ttf', 16)
         distance_surface = font.render(str(distance), True, '#FF4D4D')
         distance_rect = distance_surface.get_frect(midtop=meteor.rect.midbottom)
         screen.blit(distance_surface, distance_rect)
@@ -203,9 +204,11 @@ def esp():
     pygame.draw.rect(screen, "#A1FF92", player.rect, 4)
 
 def reset_game():
-    global player, hit_count, game_start, target_mode
+    global player, hit_count, game_start, target_mode, meteor_spawn, star_spawn
 
     target_mode = False
+    meteor_spawn = pygame.time.get_ticks()
+    star_spawn = pygame.time.get_ticks()
     game_start = pygame.time.get_ticks()
     all_sprites.empty()
     meteor_sprites.empty()
@@ -238,19 +241,19 @@ target_mode = False
 
 
 # importing stuff
-star_surf = pygame.image.load('Code/Images/Star.png').convert_alpha()
+star_surf = pygame.image.load('Images/Star.png').convert_alpha()
 star_surf.fill((213, 216, 237, 0), special_flags=pygame.BLEND_RGBA_ADD)
-laser_surface = pygame.image.load('Code/Images/Laser.png').convert_alpha()
-meteor_surface = pygame.image.load('Code/Images/Meteor.png').convert_alpha()
-font = pygame.font.Font('Code/Images/Lexend-Bold.ttf', 44)
-boom_frames = [pygame.image.load(f'Code/Images/Boom/{i}.png').convert_alpha() for i in range(21)]
+laser_surface = pygame.image.load('Images/Laser.png').convert_alpha()
+meteor_surface = pygame.image.load('Images/Meteor.png').convert_alpha()
+font = pygame.font.Font('Images/Lexend-Bold.ttf', 44)
+boom_frames = [pygame.image.load(f'Images/Boom/{i}.png').convert_alpha() for i in range(21)]
 for frame in boom_frames:
     frame.fill((117, 186, 255, 0), special_flags=pygame.BLEND_RGBA_ADD)
-laser_sound =  pygame.mixer.Sound('Code/Audio/laser.wav')
+laser_sound =  pygame.mixer.Sound('Audio/laser.ogg')
 laser_sound.set_volume(0.8)
-boom_sound =  pygame.mixer.Sound('Code/Audio/boom.wav')
-damage_sound =  pygame.mixer.Sound('Code/Audio/damage.wav')
-bgm_sound =  pygame.mixer.Sound('Code/Audio/bgm.wav')
+boom_sound =  pygame.mixer.Sound('Audio/boom.ogg')
+damage_sound =  pygame.mixer.Sound('Audio/damage.ogg')
+bgm_sound =  pygame.mixer.Sound('Audio/bgm.ogg')
 bgm_sound.set_volume(0.4)
 bgm_sound.play(loops = -1)
 
@@ -271,71 +274,81 @@ for i in range (10):
     Star(star_surf, (x, y), star_sprites)
 
 # showering down stuff
-meteor_run = pygame.event.custom_type()
-pygame.time.set_timer(meteor_run, 500)
+meteor_spawn = pygame.time.get_ticks()
+meteor_interval = 500
 
-star_run = pygame.event.custom_type()
-pygame.time.set_timer(star_run, 1200)
+star_spawn = pygame.time.get_ticks()
+star_interval = 1200
 
-while run:
-    dt = clock.tick() / 1000
-    # print(clock.get_fps()) # checking fps
+async def main():
+    global run, game_state, current_menu, target_mode, meteor_spawn, star_spawn
 
-    # the loop
-    for event in pygame.event.get():
+    while run:
+        dt = clock.tick() / 1000
+        # print(clock.get_fps()) # checking fps
 
-        if event.type == pygame.QUIT:
-            run = False
+        # the loop
+        for event in pygame.event.get():
 
-        # menu options
-        if event.type == pygame.MOUSEBUTTONDOWN and game_state == 'menu':
-            for i, rect in enumerate(current_menu):
-                if rect.collidepoint(event.pos):
-                    if i == 0:
-                        player.mode = 'keyboard'
-                        target_mode = False
-                        game_state = 'game'
-                    elif i == 1:
-                        player.mode = 'mouse'
-                        target_mode = False
-                        game_state = 'game'
-                    elif i == 2:
-                        player.mode = 'keyboard'
-                        target_mode = True
-                        game_state = 'game'
+            if event.type == pygame.QUIT:
+                run = False
 
+            # menu options
+            if event.type == pygame.KEYDOWN and game_state == 'game':
+                if event.key == pygame.K_SPACE and player.mode == 'keyboard' and player.shoot:
+                    player.fire_laser()
+
+            if event.type == pygame.MOUSEBUTTONDOWN and game_state == 'menu':
+                for i, rect in enumerate(current_menu):
+                    if rect.collidepoint(event.pos):
+                        if i == 0:
+                            player.mode = 'keyboard'
+                            target_mode = False
+                            game_state = 'game'
+                        elif i == 1:
+                            player.mode = 'mouse'
+                            target_mode = False
+                            game_state = 'game'
+                        elif i == 2:
+                            player.mode = 'keyboard'
+                            target_mode = True
+                            game_state = 'game'
+        
+        # updating the game
+        if game_state == 'menu':
+            current_menu = draw_menu()
         elif game_state == 'game':
-            if event.type == meteor_run:
+            star_sprites.update(dt)
+            all_sprites.update(dt)
+            collision()
+            current_time = pygame.time.get_ticks()
+
+            if current_time - meteor_spawn >= meteor_interval:
+                meteor_spawn = current_time
                 x, y = randint(0, WINDOW_WIDTH), randint(-200, -100)
                 Meteor(meteor_surface, (x, y), (all_sprites, meteor_sprites))
-            if event.type == star_run:
+            if current_time - star_spawn >= star_interval:
+                star_spawn = current_time
                 for i in range(randint(2,4)):
                     x, y = randint(0, WINDOW_WIDTH), randint(-200, -100)
                     Star(star_surf, (x, y), star_sprites)
+            screen.fill('#263652')
+            score()
+            star_sprites.draw(screen)
+            all_sprites.draw(screen)
+            if target_mode:
+                esp()
+        elif game_state == 'dying':
+            all_sprites.update(dt)
+            screen.fill('#263652')
+            star_sprites.draw(screen)
+            all_sprites.draw(screen)
+            if not any(isinstance(s, Boom) for s in all_sprites):
+                reset_game()
+                game_state = 'menu'
 
-    
-    # updating the game
-    if game_state == 'menu':
-        current_menu = draw_menu()
-    elif game_state == 'game':
-        star_sprites.update(dt)
-        all_sprites.update(dt)
-        collision()
-        screen.fill('#263652')
-        score()
-        star_sprites.draw(screen)
-        all_sprites.draw(screen)
-        if target_mode:
-            esp()
-    elif game_state == 'dying':
-        all_sprites.update(dt)
-        screen.fill('#263652')
-        star_sprites.draw(screen)
-        all_sprites.draw(screen)
-        if not any(isinstance(s, Boom) for s in all_sprites):
-            reset_game()
-            game_state = 'menu'
+        pygame.display.update()
 
-    pygame.display.update()
+        await asyncio.sleep(0)
 
-pygame.quit()
+asyncio.run(main())
