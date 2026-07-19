@@ -5,9 +5,13 @@ Basically, in this simple game you are the spaceship and you're trying to naviga
 
 This was essentially done using python and I tested it with the help of the pygame-ce version. Then, I had to make everything web deployable through the usage of pygbag! I was able to learn a lot through this game by learning collisions, and also making the continous motion of the stars and meteors. This was a really good learning experience and I'm very happy to finish this little game!
 
-Tech Stack: Python, Pygame-CE, Pygbag
-
 AI Used: None
+
+# Tech Slack
+- Frontend: Python
+- Hosting: GitHub Pages
+- Version Control: GitHub
+- Development Tools: Visual Studio Code, Pygame-CE, Pygbag
 
 # Features
 - 3 modes of the game
